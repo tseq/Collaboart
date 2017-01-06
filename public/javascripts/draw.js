@@ -1,41 +1,12 @@
-// Temporary enlargement of canvas. Will fix it using CSS later.
-(function init() {
-	var canvas = document.getElementById("draw");
-	canvas.width = document.body.clientWidth;
-	canvas.height = document.body.clientHeight;
-})();
-
 paper.install(window);
 window.onload = function() {
-	// Set up the canvas
+	// Set up paper
 	paper.setup('draw');
-
-	function randomColor() {
-		return {
-			red: 0,
-			green: Math.random(),
-			blue: Math.random(),
-			alpha: ( Math.random() * 0.25 ) + 0.05
-		};
-	}
-
-	function drawCircle(x, y, radius, color) {
-	    // Render the circle with Paper.js
-	    var circle = new Path.Circle(new Point(x, y), radius);
-	    circle.fillColor = new Color(color.red, color.green, color.blue, color.alpha);
-	    // Refresh the view, so we always get an update, even if the tab is not in focus
-	    view.draw();
-	} 
-
-	function emitCircle( x, y, radius, color ) {
-	    // We'll do something interesting with this shortly...
-	}
 
 	// Create a simple drawing tool:
 	var tool = new Tool();
 	var path;
 
-	// Define a mousedown and mousedrag handler
 	tool.onMouseDown = function(event) {
 		path = new Path();
 		path.strokeColor = 'black';
@@ -45,18 +16,48 @@ window.onload = function() {
 	    // Take the click/touch position as the centre of our circle
 	    var x = event.middlePoint.x;
 	    var y = event.middlePoint.y;
-	    // The faster the movement, the bigger the circle
+	    // Compute radius based on speed of mouse movement
 	    var radius = event.delta.length / 2;
-	    // Generate our random color
 	    var color = randomColor();
-	    // Draw the circle 
-	    drawCircle( x, y, radius, color );
-	    // Pass the data for this circle
-	    // to a special function for later
-	    emitCircle( x, y, radius, color );
+	    drawCircle(x, y, radius, color);
+	    // Emit data to server
+	    emitCircle(x, y, radius, color);
+	}
+
+	function randomColor() {
+		return {
+			red: Math.random(),
+			green: Math.random(),
+			blue: Math.random(),
+			alpha: ( Math.random() * 0.25 ) + 0.05
+		};
+	}
+
+	function drawCircle(x, y, radius, color) {
+		var circle = new Path.Circle(new Point(x, y), radius);
+		circle.fillColor = new Color(color.red, color.green, color.blue, color.alpha);
+		view.draw();
+	} 
+
+	function emitCircle(x, y, radius, color) {
+		// Get sessionId for IO connection
+		var sessionId = io.io.engine.id;
+
+    	// Circle's draw data
+    	var data = {
+    		x: x,
+    		y: y,
+    		radius: radius,
+    		color: color
+    	};
+
+    	// Emit event with data and sessionId to the server
+    	io.emit('drawCircle', data, sessionId)
     }
 
-	tool.onMouseUp = function(event) {
+	// Listen for 'drawCircle' events created by other users
+	io.on( 'drawCircle', function( data ) {
+		drawCircle( data.x, data.y, data.radius, data.color );
 
-	}
+	});
 }
